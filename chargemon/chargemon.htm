@@ -1,0 +1,586 @@
+<!--
+  Web UI page plugin:
+    Custom Charge/Battery Monitor Charts (designed for Leaf but should work with other vehicle types)
+    Version 1.0  <https://github.com/drc38/OVMS-Plugins>
+  
+  Installation:
+    - Type:    Page
+    - Page:    /usr/chrgmon
+    - Label:   Charge Monitor
+    - Menu:    Vehicle
+    - Auth:    Cookie
+-->
+
+<style>
+.highcharts-graph {
+  stroke-width: 4px;
+}
+.night .highcharts-color-1 {
+  fill: #c3c3c8;
+  stroke: #c3c3c8;
+}
+</style>
+
+<div class="panel panel-primary">
+  <div class="panel-heading">Charging Monitor</div>
+  <div class="panel-body">
+    <div class="receiver" id="chgreceiver">
+      <div class="chart-box linechart" id="chargechart" style="width: 100%; max-width: 100%; height: 45vh; min-height: 265px; margin: 0 auto"/>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const startTime = new Date().getTime();
+  const timeLimit = 2 * 3600 * 1000; // maximum time to plot
+
+  var chargechart;
+
+  function updateChart() {
+    // Calculate start time:
+    var now = new Date().getTime();
+    var exceedLimit = (now - startTime > timeLimit);
+    // Update data series:
+    chargechart.series[0].addPoint([ now, metrics["v.b.power"] ], false, exceedLimit);
+    chargechart.series[1].addPoint([ now, metrics["v.b.soc"] ], false, exceedLimit);
+    chargechart.series[2].addPoint([ now, metrics["v.b.p.temp.avg"] ], false, exceedLimit);
+    chargechart.redraw();
+  }
+
+  // Init chart:
+  $('#chargechart').chart({
+    chart: {
+      type: 'line',
+      events: {
+        load: function () {
+            chargechart = this;
+            //chargechart.series[0].addPoint([ startTime, metrics["v.b.power"] ]);
+            //chargechart.series[1].addPoint([ startTime, metrics["v.b.soc"] ]);
+            //chargechart.series[2].addPoint([ startTime, metrics["v.b.p.temp.avg"] ]);
+            $('#chgreceiver').on("msg:metrics", function(e, update){
+              if (update["v.b.soc"] != null) {
+                 updateChart();
+               }
+            });
+          }
+      },
+      zoomType: 'x',
+      panning: true,
+      panKey: 'ctrl',
+      animation: false,
+    },
+    title: { text: null },
+    credits: { enabled: false },
+    legend: {
+      align: 'center',
+      verticalAlign: 'bottom',
+    },
+    plotOptions: {
+      series: {
+        animation: false,
+      },
+    },
+    tooltip: {
+      shared: true,
+      crosshairs: true,
+    },
+
+    // Axes:
+    xAxis: {
+      type: 'datetime',
+      dateTimeLabelFormats: {
+        minute: '%H:%M'
+      },
+      min: startTime,
+      pointStart: startTime,
+      useUTC: false
+    },
+    yAxis: [{
+      title: { text: "Charge rate [kW] / Temperature [°C]" },
+      labels: { format: "{value:.0f}" },
+    },{
+      opposite: true,
+      title: { text: "SOC [%]" },
+      labels: { format: "{value:.1f}" },
+      plotBands: [{ 
+        color: '#FCFFC5',
+        from: 80,
+        to: 100
+      }],
+    }],
+
+    // Data:
+    series: [{
+      name: 'Charge rate',
+      tooltip: { valueSuffix: ' kW' },
+      yAxis: 0,
+      data: [ metrics["v.b.power"] ]
+    },{
+      name: 'SOC',
+      tooltip: { valueSuffix: ' %' },
+      yAxis: 1,
+      data: [ metrics["v.b.soc"] ]
+    },{
+      name: 'Battery Temp',
+      tooltip: { valueSuffix: ' °C' },
+      yAxis: 0,
+      data: [ metrics["v.b.p.temp.avg"] ]
+    }],
+
+    // Layout:
+    responsive: {
+      rules: [{
+        condition: { maxWidth: 500 },
+        chartOptions: {
+          yAxis: [{
+            title: { text: null },
+          },{
+            title: { text: null },
+          }],
+        },
+      }],
+    },
+  });
+//$('#chargechart').data('chart', chargechart).addClass('has-chart');
+})();
+</script>
+
+<div class="panel panel-primary panel-single">
+   <div class="panel-heading">Leaf Cell Monitor</div>
+   <div class="panel-body">
+     <div class="row">
+       <div class="receiver" id="livestatus">
+         <div class="chart-box boxplotchart" id="voltchart" style="width: 100%; max-width: 100%; height: 45vh; min-height: 280px; margin: 0 auto"></div>
+         <div class="chart-box boxplotchart" id="tempchart" style="width: 100%; max-width: 100%; height: 25vh; min-height: 160px; margin: 0 auto"></div>
+       </div>
+     </div>
+   </div>
+</div>
+ 
+
+<style>
+  .highcharts-boxplot-stem {
+    stroke-opacity: 1;
+  }
+  .highcharts-point {
+    stroke-width: 1px;
+  }
+  .night .highcharts-columnrange-series .highcharts-point {
+    fill-opacity: 0.6;
+    stroke-opacity: 0.6;
+  }
+  
+  .night .highcharts-legend-item text {
+    fill: #dddddd;
+  }
+  
+  .highcharts-plot-line {
+    fill: none;
+    stroke: #3625c3;
+    stroke-width: 2px;
+  }
+  .night .highcharts-plot-line {
+    stroke: #728def;
+  }
+  .highcharts-plot-band {
+    fill: #3625c3;
+    fill-opacity: 0.1;
+  }
+  .night .highcharts-plot-band {
+    fill: #728def;
+    fill-opacity: 0.2;
+  }
+  
+  .plot-line-sdmaxlo {
+    stroke: #3625c3;
+    stroke-width: 1px;
+  }
+  .plot-line-sdmaxhi {
+    stroke: #3625c3;
+    stroke-width: 1px;
+  }
+  .night .plot-line-sdmaxlo {
+    stroke: #728def;
+  }
+  .night .plot-line-sdmaxhi {
+    stroke: #728def;
+  }
+  
+  .highcharts-plot-line-label {
+    fill: #888;
+    font-size: 10px;
+  }
+  
+  .highcharts-color-1 {
+    fill: #ffb500;
+    stroke: #cc950e;
+  }
+  .highcharts-color-2 {
+    fill: #ff3400;
+    stroke: #ff3400;
+  }
+  
+  #voltchart .highcharts-point.highcharts-color-0 {
+    fill: #3625c3;
+    fill-opacity: 0.1;
+    stroke: #3625c3;
+  }
+  .night #voltchart .highcharts-point.highcharts-color-0 {
+    fill: #728def;
+    stroke: #728def;
+  }
+  
+  #voltchart .highcharts-boxplot-stem {
+    fill: #63cc7a;
+    fill-opacity: 1;
+    stroke: #63cc7a;
+    stroke-opacity: 1;
+  }
+  .night #voltchart .highcharts-boxplot-stem {
+    fill-opacity: 0.6;
+    stroke-opacity: 0.6;
+  }
+  
+  #voltchart .highcharts-boxplot-median {
+    stroke: #193e07;
+    stroke-width: 5px;
+    stroke-linecap: round;
+  }
+  .night #voltchart .highcharts-boxplot-median {
+    stroke: #afff45;
+  }
+  
+  #tempchart .highcharts-point.highcharts-color-0 {
+    fill: #3625c3;
+    fill-opacity: 0.1;
+    stroke: #3625c3;
+  }
+  .night #tempchart .highcharts-point.highcharts-color-0 {
+    fill: #728def;
+    stroke: #728def;
+  }
+  
+  #tempchart .highcharts-boxplot-stem {
+    fill: #da9073;
+    fill-opacity: 1;
+    stroke: #da9073;
+    stroke-opacity: 1;
+  }
+  .night #tempchart .highcharts-boxplot-stem {
+    fill-opacity: 0.6;
+    stroke-opacity: 0.6;
+  }
+  
+  #tempchart .highcharts-boxplot-median {
+    stroke: #7d1313;
+    stroke-width: 5px;
+    stroke-linecap: round;
+  }
+  .night #tempchart .highcharts-boxplot-median {
+    stroke: #fdd02e;
+  }
+
+  #voltchart .highcharts-boxplot-stem {
+    stroke-width: 0.3;
+  }
+  #tempchart .highcharts-boxplot-stem {
+    stroke-width: 3.4;
+  }
+</style>
+
+
+<script>
+(function(){  
+
+  /**
+   * Cell voltage chart
+   */
+  
+  var voltchart;
+  
+  // get_volt_data: build boxplot dataset from metrics
+  function get_volt_data() {
+    var data = { cells: [], volts: [], devmax: [], voltmean: 0, sdlo: 0, sdhi: 0, sdmaxlo: 0, sdmaxhi: 0 };
+    var cnt = metrics["v.b.c.voltage"] ? metrics["v.b.c.voltage"].length : 0;
+    if (cnt == 0)
+      return data;
+    var allshunts = "," + metrics["xnl.bms.balancing"] + ",";
+    //console.log(allshunts);
+    var i, act, min, max, devmax, dalert, dlow, dhigh, shunt;
+    data.voltmean = metrics["v.b.p.voltage.avg"] || 0;
+    data.sdlo = data.voltmean - (metrics["v.b.p.voltage.stddev"]  || 0);
+    data.sdhi = data.voltmean + (metrics["v.b.p.voltage.stddev"] || 0);
+    data.sdmaxlo = data.voltmean - (metrics["v.b.p.voltage.stddev.max"] || 0);
+    data.sdmaxhi = data.voltmean + (metrics["v.b.p.voltage.stddev.max"]  || 0);
+    for (i=0; i<cnt; i++) {
+      act = metrics["v.b.c.voltage"][i];
+      min = metrics["v.b.c.voltage.min"][i] || act;
+      max = metrics["v.b.c.voltage.max"][i] || act;
+      devmax = metrics["v.b.c.voltage.dev.max"][i] || 0;
+      dalert = metrics["v.b.c.voltage.alert"][i] ? 2 : 0;
+      shunt = allshunts.includes(","+(i+1)+",") ? 1 : 0;
+      if (devmax > 0) {
+        dlow = data.voltmean;
+        dhigh = data.voltmean + devmax;
+      } else {
+        dlow = data.voltmean + devmax;
+        dhigh = data.voltmean;
+      }
+      data.cells.push(i+1);
+      data.volts.push({ low:min, q1:act, median:act, q3:act, high:max });
+      data.devmax.push({ x:i, low:dlow, high:dhigh, colorIndex:Math.max(shunt,dalert),
+          id: ((devmax < 0) ? '▼ ' : '▲ ') + Math.abs(devmax * 1000).toFixed(0) + ' mV' });
+    }
+    return data;
+  }
+  
+  function update_volt_chart() {
+    var data = get_volt_data();
+    voltchart.xAxis[0].setCategories(data.cells);
+    voltchart.yAxis[0].removePlotLine('plot-line-mean');
+    voltchart.yAxis[0].addPlotLine({ id: 'plot-line-mean', className: 'plot-line-mean', value: data.voltmean, zIndex: 3 });
+    voltchart.yAxis[0].removePlotLine('plot-line-sdmaxlo');
+    voltchart.yAxis[0].addPlotLine({ id: 'plot-line-sdmaxlo', className: 'plot-line-sdmaxlo', value: data.sdmaxlo, zIndex: 3 });
+    voltchart.yAxis[0].removePlotLine('plot-line-sdmaxhi');
+    voltchart.yAxis[0].addPlotLine({ id: 'plot-line-sdmaxhi', className: 'plot-line-sdmaxhi', value: data.sdmaxhi, zIndex: 3, label: { text: 'Max Std Dev' } });
+    voltchart.yAxis[0].removePlotBand('plot-band-sd');
+    voltchart.yAxis[0].addPlotBand({ id: 'plot-band-sd', className: 'plot-band-sd', from: data.sdlo, to: data.sdhi });
+    voltchart.series[0].setData(data.volts);
+    voltchart.series[1].setData(data.devmax);
+  }
+  
+  function init_volt_chart() {
+    var data = get_volt_data();
+    $('#voltchart').chart({
+      chart: {
+        type: 'boxplot',
+        events: {
+          load: function () {
+             voltchart = this;
+             $('#livestatus').on("msg:metrics", function(e, update){
+             if (update["v.b.c.voltage"] != null
+              || update["v.b.c.voltage.min"] != null
+              || update["v.b.c.voltage.max"] != null
+              || update["v.b.c.voltage.dev.max"] != null
+              || update["v.b.c.voltage.alert"] != null)
+               update_volt_chart();
+           });
+         }
+       },
+       zoomType: 'y',
+       panning: true,
+       panKey: 'ctrl',
+     },
+     title: { text: null },
+     credits: { enabled: false },
+     legend: {
+       enabled: true,
+       align: 'center',
+       verticalAlign: 'bottom',
+       margin: 2,
+       padding: 2,
+     },
+     xAxis: { categories: data.cells },
+     yAxis: {
+       title: { text: null },
+       labels: { format: "{value:.2f}V" },
+       minTickInterval: 0.01,
+       minorTickInterval: 'auto',
+       plotLines: [
+         { id: 'plot-line-mean', className: 'plot-line-mean', value: data.voltmean, zIndex: 3 },
+         { id: 'plot-line-sdmaxlo', className: 'plot-line-sdmaxlo', value: data.sdmaxlo, zIndex: 3 },
+         { id: 'plot-line-sdmaxhi', className: 'plot-line-sdmaxhi', value: data.sdmaxhi, zIndex: 3, label: { text: 'Max Std Dev' } },
+       ],
+       plotBands: [{ id: 'plot-band-sd', className: 'plot-band-sd', from: data.sdlo, to: data.sdhi }],
+     },
+     tooltip: {
+       shared: true,
+       padding: 4,
+       positioner: function (labelWidth, labelHeight, point) {
+         return {
+           x: voltchart.plotLeft + Math.min(voltchart.plotWidth - labelWidth, Math.max(0, point.plotX - labelWidth/2)),
+           y: 0 };
+       },
+       headerFormat: 'Voltage #{point.key}: ',
+       pointFormatter: function () {
+         if (this.series.index == 0) {
+           return '<b>' + this.median.toFixed(3) + ' V</b>'
+             + '  [' + this.low.toFixed(3) + ' – ' + this.high.toFixed(3) + ']<br/>';
+         } else {
+           return 'Max deviation: <b>' + this.id + '</b>';
+         }
+       },
+     },
+     series: [{
+       name: 'Voltage',
+       zIndex: 1,
+       data: data.volts,
+       whiskerLength: 0,
+       animation: {
+         duration: 100,
+         easing: 'easeOutExpo'
+       },
+     },{
+       name: 'Shunts & Max deviation',
+       zIndex: 0,
+       type: 'columnrange',
+       data: data.devmax,
+       maxPointWidth: 35,
+       animation: {
+         duration: 100,
+         easing: 'easeOutExpo'
+       },
+     }]
+   });
+   //$('#voltchart').data('chart', voltchart).addClass('has-chart');
+ }
+ 
+ 
+ /**
+  * Cell temperature chart
+  */
+ 
+ var tempchart;
+ 
+ // get_temp_data: build boxplot dataset from metrics
+ function get_temp_data() {
+   var data = { cells: [], temps: [], devmax: [], tempmean: 0, sdlo: 0, sdhi: 0, sdmaxlo: 0, sdmaxhi: 0 };
+   var cnt = metrics["v.b.c.temp"] ? metrics["v.b.c.temp"].length : 0;
+   if (cnt == 0)
+     return data;
+   var i, act, min, max, devmax, dalert, dlow, dhigh;
+   data.tempmean = metrics["v.b.p.temp.avg"] || 0;
+   data.sdlo = data.tempmean - (metrics["v.b.p.temp.stddev"] || 0);
+   data.sdhi = data.tempmean + (metrics["v.b.p.temp.stddev"] || 0);
+   data.sdmaxlo = data.tempmean - (metrics["v.b.p.temp.stddev.max"] || 0);
+   data.sdmaxhi = data.tempmean + (metrics["v.b.p.temp.stddev.max"] || 0);
+   for (i=0; i<cnt; i++) {
+     act = metrics["v.b.c.temp"][i];
+     min = metrics["v.b.c.temp.min"][i] || act;
+     max = metrics["v.b.c.temp.max"][i] || act;
+     devmax = metrics["v.b.c.temp.dev.max"][i] || 0;
+     dalert = metrics["v.b.c.temp.alert"][i] || 0;
+     if (devmax > 0) {
+       dlow = data.tempmean;
+       dhigh = data.tempmean + devmax;
+     } else {
+       dlow = data.tempmean + devmax;
+       dhigh = data.tempmean;
+     }
+     data.cells.push(i+1);
+     data.temps.push([min,act,act,act,max]);
+     data.devmax.push({ x:i, low:dlow, high:dhigh, colorIndex:dalert,
+         id: ((devmax < 0) ? '▼ ' : '▲ ') + Math.abs(devmax).toFixed(1) + ' °C' });
+   }
+   return data;
+ }
+ 
+ function update_temp_chart(chart) {
+   var data = get_temp_data();
+   tempchart.xAxis[0].setCategories(data.cells);
+   tempchart.yAxis[0].removePlotLine('plot-line-mean');
+   tempchart.yAxis[0].addPlotLine({ id: 'plot-line-mean', className: 'plot-line-mean', value: data.tempmean, zIndex: 3 });
+   tempchart.yAxis[0].removePlotLine('plot-line-sdmaxlo');
+   tempchart.yAxis[0].addPlotLine({ id: 'plot-line-sdmaxlo', className: 'plot-line-sdmaxlo', value: data.sdmaxlo, zIndex: 3 });
+   tempchart.yAxis[0].removePlotLine('plot-line-sdmaxhi');
+   tempchart.yAxis[0].addPlotLine({ id: 'plot-line-sdmaxhi', className: 'plot-line-sdmaxhi', value: data.sdmaxhi, zIndex: 3, label: { text: 'Max Std Dev' } });
+   tempchart.yAxis[0].removePlotBand('plot-band-sd');
+   tempchart.yAxis[0].addPlotBand({ id: 'plot-band-sd', className: 'plot-band-sd', from: data.sdlo, to: data.sdhi });
+   tempchart.series[0].setData(data.temps);
+   tempchart.series[1].setData(data.devmax);
+ }
+ 
+ function init_temp_chart() {
+   var data = get_temp_data();
+   $('#tempchart').chart({
+     chart: {
+       type: 'boxplot',
+       events: {
+         load: function () {
+             tempchart = this;
+             $('#livestatus').on("msg:metrics", function(e, update){
+             if (update["v.b.c.temp"] != null
+              || update["v.b.c.temp.min"] != null
+              || update["v.b.c.temp.max"] != null
+              || update["v.b.c.temp.dev.max"] != null
+              || update["v.b.c.temp.alert"] != null)
+               update_temp_chart();
+           });
+         }
+       },
+       zoomType: 'y',
+       panning: true,
+       panKey: 'ctrl',
+     },
+     title: { text: null },
+     credits: { enabled: false },
+     legend: {
+       enabled: true,
+       align: 'center',
+       verticalAlign: 'bottom',
+       margin: 2,
+       padding: 2,
+     },
+     xAxis: { categories: data.cells },
+     yAxis: {
+       title: { text: null },
+       labels: { format: "{value:.0f} °C" },
+       minTickInterval: 1,
+       minorTickInterval: 'auto',
+       plotLines: [
+         { id: 'plot-line-mean', className: 'plot-line-mean', value: data.tempmean, zIndex: 3 },
+         { id: 'plot-line-sdmaxlo', className: 'plot-line-sdmaxlo', value: data.sdmaxlo, zIndex: 3 },
+         { id: 'plot-line-sdmaxhi', className: 'plot-line-sdmaxhi', value: data.sdmaxhi, zIndex: 3, label: { text: 'Max Std Dev' } },
+       ],
+       plotBands: [{ id: 'plot-band-sd', className: 'plot-band-sd', from: data.sdlo, to: data.sdhi }],
+     },
+     tooltip: {
+       shared: true,
+       padding: 4,
+       positioner: function (labelWidth, labelHeight, point) {
+         return {
+           x: tempchart.plotLeft + Math.min(tempchart.plotWidth - labelWidth, Math.max(0, point.plotX - labelWidth/2)),
+           y: 0 };
+       },
+       headerFormat: 'Temperature #{point.key}: ',
+       pointFormatter: function () {
+         if (this.series.index == 0) {
+           return '<b>' + this.median.toFixed(1) + ' °C</b>'
+             + '  [' + this.low.toFixed(1) + ' – ' + this.high.toFixed(1) + ']<br/>';
+         } else {
+           return 'Max deviation: <b>' + this.id + '</b>';
+         }
+       },
+     },
+     series: [{
+       name: 'Temperature',
+       zIndex: 1,
+       data: data.temps,
+       whiskerLength: 0,
+       animation: {
+         duration: 100,
+         easing: 'easeOutExpo'
+       },
+     },{
+       name: 'Max deviation',
+       zIndex: 0,
+       type: 'columnrange',
+       data: data.devmax,
+       maxPointWidth: 35,
+       animation: {
+         duration: 100,
+         easing: 'easeOutExpo'
+       },
+     }]
+   });
+   //$('#tempchart').data('chart', tempchart).addClass('has-chart');
+ }
+  
+ /**
+  * Chart initialization
+  */
+   init_volt_chart();
+   init_temp_chart();
+})();
+</script>
