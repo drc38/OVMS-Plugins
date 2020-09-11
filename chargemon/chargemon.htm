@@ -54,10 +54,12 @@
       type: 'line',
       events: {
         load: function () {
+            Highcharts.setOptions({
+              time: {
+                useUTC: false
+              }
+            });
             chargechart = this;
-            //chargechart.series[0].addPoint([ startTime, metrics["v.b.power"] ]);
-            //chargechart.series[1].addPoint([ startTime, metrics["v.b.soc"] ]);
-            //chargechart.series[2].addPoint([ startTime, metrics["v.b.p.temp.avg"] ]);
             $('#chgreceiver').on("msg:metrics", function(e, update){
               if (update["v.b.soc"] != null) {
                  updateChart();
@@ -85,7 +87,6 @@
       shared: true,
       crosshairs: true,
     },
-
     // Axes:
     xAxis: {
       type: 'datetime',
@@ -94,7 +95,6 @@
       },
       min: startTime,
       pointStart: startTime,
-      useUTC: false
     },
     yAxis: [{
       title: { text: "Charge rate [kW] / Temperature [°C]" },
