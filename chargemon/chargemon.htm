@@ -42,9 +42,10 @@
     var now = new Date().getTime();
     var exceedLimit = (now - startTime > timeLimit);
     // Update data series:
-    chargechart.series[0].addPoint([ now, metrics["v.b.power"] ], false, exceedLimit);
-    chargechart.series[1].addPoint([ now, metrics["v.b.soc"] ], false, exceedLimit);
-    chargechart.series[2].addPoint([ now, metrics["v.b.p.temp.avg"] ], false, exceedLimit);
+    chargechart.series[0].addPoint([ now, metrics["xnl.v.c.power"] ], false, exceedLimit);
+    chargechart.series[1].addPoint([ now, metrics["v.b.power"] ], false, exceedLimit);
+    chargechart.series[2].addPoint([ now, metrics["v.b.soc"] ], false, exceedLimit);
+    chargechart.series[3].addPoint([ now, metrics["v.b.p.temp.avg"] ], false, exceedLimit);
     chargechart.redraw();
   }
 
@@ -60,6 +61,7 @@
               }
             });
             chargechart = this;
+            updateChart();
             $('#chgreceiver').on("msg:metrics", function(e, update){
               if (update["v.b.soc"] != null) {
                  updateChart();
@@ -97,7 +99,7 @@
       pointStart: startTime,
     },
     yAxis: [{
-      title: { text: "Charge rate [kW] / Temperature [°C]" },
+      title: { text: "Power [kW] / Temperature [°C]" },
       labels: { format: "{value:.0f}" },
     },{
       opposite: true,
@@ -112,20 +114,21 @@
 
     // Data:
     series: [{
-      name: 'Charge rate',
+      name: 'Charger rate',
       tooltip: { valueSuffix: ' kW' },
       yAxis: 0,
-      data: [ metrics["v.b.power"] ]
+    },{
+      name: 'Battery rate',
+      tooltip: { valueSuffix: ' kW' },
+      yAxis: 0,
     },{
       name: 'SOC',
       tooltip: { valueSuffix: ' %' },
       yAxis: 1,
-      data: [ metrics["v.b.soc"] ]
     },{
       name: 'Battery Temp',
       tooltip: { valueSuffix: ' °C' },
       yAxis: 0,
-      data: [ metrics["v.b.p.temp.avg"] ]
     }],
 
     // Layout:
