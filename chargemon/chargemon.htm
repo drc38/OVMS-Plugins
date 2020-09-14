@@ -42,7 +42,7 @@
     var now = new Date().getTime();
     var exceedLimit = (now - startTime > timeLimit);
     // Update data series:
-    chargechart.series[0].addPoint([ now, metrics["xnl.v.c.power"] ], false, exceedLimit);
+    chargechart.series[0].addPoint([ now, metrics["v.c.power"] ], false, exceedLimit);
     chargechart.series[1].addPoint([ now, metrics["v.b.power"] ], false, exceedLimit);
     chargechart.series[2].addPoint([ now, metrics["v.b.soc"] ], false, exceedLimit);
     chargechart.series[3].addPoint([ now, metrics["v.b.p.temp.avg"] ], false, exceedLimit);
