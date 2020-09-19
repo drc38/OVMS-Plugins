@@ -1,0 +1,150 @@
+<!--
+  Web UI page plugin:
+    Custom Motor Monitor Charts (designed for Leaf but should work with other vehicle types)
+    Version 1.0  <https://github.com/drc38/OVMS-Plugins>
+  
+  Installation:
+    - Type:    Page
+    - Page:    /usr/motormon
+    - Label:   Motor Monitor
+    - Menu:    Vehicle
+    - Auth:    Cookie
+-->
+
+<style>
+.highcharts-graph {
+  stroke-width: 4px;
+}
+.night .highcharts-color-1 {
+  fill: #c3c3c8;
+  stroke: #c3c3c8;
+}
+</style>
+
+<div class="panel panel-primary">
+  <div class="panel-heading">Motor Monitor</div>
+  <div class="panel-body">
+    <div class="receiver" id="mtrreceiver">
+      <div class="chart-box linechart" id="motorchart" style="width: 100%; max-width: 100%; height: 45vh; min-height: 265px; margin: 0 auto"/>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const startTime = new Date().getTime();
+  const timeLimit = 2 * 3600 * 1000; // maximum time to plot
+
+  var chargechart;
+
+  function updateChart() {
+    // Calculate start time:
+    var now = new Date().getTime();
+    var exceedLimit = (now - startTime > timeLimit);
+    // Update data series:
+    chargechart.series[0].addPoint([ now, metrics["v.b.power"] ], false, exceedLimit);
+    chargechart.series[1].addPoint([ now, metrics["v.i.power"] ], false, exceedLimit);
+    chargechart.series[2].addPoint([ now, metrics["v.i.efficiency"] ], false, exceedLimit);
+    chargechart.series[3].addPoint([ now, metrics["v.m.rpm"] ], false, exceedLimit);
+    chargechart.redraw();
+  }
+
+  // Init chart:
+  $('#motorchart').chart({
+    chart: {
+      type: 'line',
+      events: {
+        load: function () {
+            Highcharts.setOptions({
+              time: {
+                useUTC: false
+              }
+            });
+            chargechart = this;
+            updateChart();
+            $('#mtrreceiver').on("msg:metrics", function(e, update){
+              if (update["v.b.power"] != null) {
+                 updateChart();
+               }
+            });
+          }
+      },
+      zoomType: 'x',
+      panning: true,
+      panKey: 'ctrl',
+      animation: false,
+    },
+    title: { text: null },
+    credits: { enabled: false },
+    legend: {
+      align: 'center',
+      verticalAlign: 'bottom',
+    },
+    plotOptions: {
+      series: {
+        animation: false,
+      },
+    },
+    tooltip: {
+      shared: true,
+      crosshairs: true,
+    },
+    // Axes:
+    xAxis: {
+      type: 'datetime',
+      dateTimeLabelFormats: {
+        minute: '%H:%M'
+      },
+      min: startTime,
+      pointStart: startTime,
+    },
+    yAxis: [{
+      title: { text: "Power [kW]/Efficiency [%]" },
+      labels: { format: "{value:.0f}" },
+    },{
+      opposite: true,
+      title: { text: "Rpm" },
+      labels: { format: "{value:.1f}" },
+      plotBands: [{ 
+        color: '#FCFFC5',
+        from: 80,
+        to: 100
+      }],
+    }],
+
+    // Data:
+    series: [{
+      name: 'Battery rate',
+      tooltip: { valueSuffix: ' kW' },
+      yAxis: 0,
+    },{
+      name: 'Motor rate',
+      tooltip: { valueSuffix: ' kW' },
+      yAxis: 0,
+    },{
+      name: 'Inverter efficiency',
+      tooltip: { valueSuffix: ' %' },
+      yAxis: 0,
+    },{
+      name: 'Motor Rpm',
+      tooltip: { valueSuffix: '' },
+      yAxis: 1,
+    }],
+
+    // Layout:
+    responsive: {
+      rules: [{
+        condition: { maxWidth: 500 },
+        chartOptions: {
+          yAxis: [{
+            title: { text: null },
+          },{
+            title: { text: null },
+          }],
+        },
+      }],
+    },
+  });
+//$('#chargechart').data('chart', chargechart).addClass('has-chart');
+})();
+</script>
