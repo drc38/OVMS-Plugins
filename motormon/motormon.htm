@@ -33,7 +33,9 @@
 <script>
 (function(){
   const startTime = new Date().getTime();
-  const timeLimit = 2 * 3600 * 1000; // maximum time to plot
+  const timeLimit = 0.5 * 3600 * 1000; // maximum time to plot 1/2hr
+  const sampleInterval = 10;  // Seconds, needs to match a ticker event
+  const tickerEvent = 'ticker.' + sampleInterval;
 
   var chargechart;
 
@@ -62,8 +64,8 @@
             });
             chargechart = this;
             updateChart();
-            $('#mtrreceiver').on("msg:metrics", function(e, update){
-              if (update["v.b.power"] != null) {
+            $('#mtrreceiver').on("msg:event", function(e, event){
+              if (event == tickerEvent) {
                  updateChart();
                }
             });
