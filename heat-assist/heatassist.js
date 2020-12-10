@@ -4,13 +4,18 @@
  * Module plugin:
  *  Heating assist module for controlling external heating element based on vehicle climate control metrics.
  * 
- * Version 0.9   Jaunius Kapkan <jaunius@gmx.com>
+ * Version 0.9.1   Jaunius Kapkan <jaunius@gmx.com>
  * 
  * Enable:
  *  - install at above path
  *  - add to /store/scripts/ovmsmain.js:
- *        heatasist = require("lib/heatasist")
+ *        heatAssist = require("lib/heatassist")
  *        heatAssist.startAssist()
+ *  - As a percaution I recommend adding additional control to turn off heating when vehicle is turned off (use revelvant egpio on/off comamnd if you don't use ext12v):
+ *      - add to /store/events/vehicle.on/ext12v
+ *            power ext12v on
+ *      - add to /store/events/vehicle.off/ext12v
+ *            power ext12v off
  *  - script reload
  * 
  * Config:
@@ -138,9 +143,9 @@ exports.startAssist = function() {
     }
 
     function setAssistStatus(state) {
-        var asistStatus = "on"
+        var asistStatus = "off"
         if (state) {
-            asistStatus = "off"
+            asistStatus = "on"
         }
         OvmsCommand.Exec("config set vehicle heatasist.heating " + asistStatus)
         OvmsEvents.Raise(mainEventName + 'heating.' + asistStatus)
@@ -154,7 +159,7 @@ exports.startAssist = function() {
         function assistEngage() {
             OvmsEvents.Raise(mainEventName + "heartbeat", checkIntervalMs)
 
-            if ((getNumMetric("metric list v.b.12v.voltage") > min12BatV) && metricStatus("metrics list v.e.heating") && (checkTempDiff("metrics list v.e.cabintemp","metrics list v.e.cabin.setpoint",assistOffset) || (metricStatus("me li v.e.cabin.vent",/ screen/g) && !metricStatus("me li v.e.cabin.vent",/feet/g)))) {
+            if ((getNumMetric("metric list v.b.12v.voltage") > min12BatV) && metricStatus("metrics list v.e.heating") && (checkTempDiff("metrics list v.e.cabintemp","metrics list v.e.cabinsetpoint",assistOffset) || (metricStatus("me li v.e.cabinvent",/ screen/g) && !metricStatus("me li v.e.cabinvent",/feet/g)))) {
                 if (!assistOn) {
                     var switchStatus = extPowerON(true)
                     if (switchStatus) {
